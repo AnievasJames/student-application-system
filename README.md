@@ -1,1 +1,0 @@
-# student-application-system

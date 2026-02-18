@@ -9,6 +9,7 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('token'));
 
   useEffect(() => {
+    // Check if user is logged in on mount
     const checkAuth = async () => {
       const storedToken = localStorage.getItem('token');
       const storedUser = localStorage.getItem('user');
@@ -20,7 +21,7 @@ export const AuthProvider = ({ children }) => {
           setUser(response.data.user);
           setToken(storedToken);
         } catch (error) {
-          // Token invalid or expired - clear and redirect
+          // Token invalid, clear storage
           localStorage.removeItem('token');
           localStorage.removeItem('user');
           setUser(null);
@@ -31,28 +32,6 @@ export const AuthProvider = ({ children }) => {
     };
 
     checkAuth();
-
-    // Auto-check token expiration every 5 minutes
-    const interval = setInterval(() => {
-      const storedToken = localStorage.getItem('token');
-      if (storedToken) {
-        try {
-          // Decode JWT to check expiration
-          const payload = JSON.parse(atob(storedToken.split('.')[1]));
-          const expirationTime = payload.exp * 1000;
-          
-          if (Date.now() >= expirationTime) {
-            // Token expired - auto logout
-            logout();
-          }
-        } catch (error) {
-          console.error('Token validation error:', error);
-          logout();
-        }
-      }
-    }, 5 * 60 * 1000); // Check every 5 minutes
-
-    return () => clearInterval(interval);
   }, []);
 
   const login = async (email, password) => {
@@ -101,7 +80,6 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('user');
     setToken(null);
     setUser(null);
-    window.location.href = '/login';
   };
 
   const value = {

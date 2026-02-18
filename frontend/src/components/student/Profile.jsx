@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { profileService } from '../../services/api';
-import '../../App.css';
 
 const Profile = () => {
   const { user } = useAuth();
@@ -44,19 +43,13 @@ const Profile = () => {
       });
       setLoading(false);
     } catch (error) {
-      setMessage({ 
-        type: 'error', 
-        text: 'Failed to load profile' 
-      });
+      setMessage({ type: 'error', text: 'Failed to load profile' });
       setLoading(false);
     }
   };
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
@@ -66,171 +59,88 @@ const Profile = () => {
 
     try {
       await profileService.updateProfile(user.id, formData);
-      setMessage({ 
-        type: 'success', 
-        text: 'Profile updated successfully!' 
-      });
+      setMessage({ type: 'success', text: 'Profile updated successfully!' });
       setIsEditing(false);
-      fetchProfile(); // Refresh profile data
+      fetchProfile();
     } catch (error) {
-      setMessage({ 
-        type: 'error', 
-        text: error.response?.data?.error || 'Failed to update profile' 
-      });
+      setMessage({ type: 'error', text: error.response?.data?.error || 'Failed to update profile' });
     }
-
     setSaving(false);
   };
 
-  if (loading) {
-    return <div className="loading">Loading profile...</div>;
-  }
+  if (loading) return <div style={{padding: '2rem'}}>Loading profile...</div>;
 
   return (
-    <div className="profile-container">
-      <div className="profile-header">
+    <div style={{padding: '2rem', maxWidth: '800px', margin: '0 auto'}}>
+      <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '2rem'}}>
         <h2>My Profile</h2>
         {!isEditing && (
-          <button 
-            onClick={() => setIsEditing(true)} 
-            className="btn-secondary"
-          >
+          <button onClick={() => setIsEditing(true)} style={{padding: '0.5rem 1rem', cursor: 'pointer'}}>
             Edit Profile
           </button>
         )}
       </div>
 
       {message.text && (
-        <div className={`message ${message.type}`}>
+        <div style={{padding: '1rem', marginBottom: '1rem', background: message.type === 'success' ? '#d1fae5' : '#fee2e2', borderRadius: '8px'}}>
           {message.text}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="profile-form">
-        <div className="section">
-          <h3>Basic Information</h3>
-          <div className="form-row">
-            <div className="form-group">
-              <label>First Name</label>
-              <input
-                type="text"
-                name="firstName"
-                value={formData.firstName}
-                onChange={handleChange}
-                disabled={!isEditing}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Last Name</label>
-              <input
-                type="text"
-                name="lastName"
-                value={formData.lastName}
-                onChange={handleChange}
-                disabled={!isEditing}
-                required
-              />
-            </div>
+      <form onSubmit={handleSubmit}>
+        <div style={{display: 'grid', gap: '1rem'}}>
+          <div>
+            <label>First Name</label>
+            <input type="text" name="firstName" value={formData.firstName} onChange={handleChange} disabled={!isEditing} required style={{width: '100%', padding: '0.5rem'}} />
           </div>
 
-          <div className="form-group">
+          <div>
+            <label>Last Name</label>
+            <input type="text" name="lastName" value={formData.lastName} onChange={handleChange} disabled={!isEditing} required style={{width: '100%', padding: '0.5rem'}} />
+          </div>
+
+          <div>
             <label>Email</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              disabled={!isEditing}
-              required
-            />
+            <input type="email" name="email" value={formData.email} onChange={handleChange} disabled={!isEditing} required style={{width: '100%', padding: '0.5rem'}} />
           </div>
 
-          <div className="form-group">
-            <label>Phone Number</label>
-            <input
-              type="tel"
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              disabled={!isEditing}
-              placeholder="+1234567890"
-            />
+          <div>
+            <label>Phone</label>
+            <input type="tel" name="phone" value={formData.phone} onChange={handleChange} disabled={!isEditing} style={{width: '100%', padding: '0.5rem'}} />
           </div>
-        </div>
 
-        <div className="section">
-          <h3>Personal Details</h3>
-          <div className="form-group">
+          <div>
             <label>Date of Birth</label>
-            <input
-              type="date"
-              name="dateOfBirth"
-              value={formData.dateOfBirth}
-              onChange={handleChange}
-              disabled={!isEditing}
-            />
+            <input type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={handleChange} disabled={!isEditing} style={{width: '100%', padding: '0.5rem'}} />
           </div>
 
-          <div className="form-group">
+          <div>
             <label>Gender</label>
-            <select
-              name="gender"
-              value={formData.gender}
-              onChange={handleChange}
-              disabled={!isEditing}
-            >
+            <select name="gender" value={formData.gender} onChange={handleChange} disabled={!isEditing} style={{width: '100%', padding: '0.5rem'}}>
               <option value="">Select Gender</option>
               <option value="male">Male</option>
               <option value="female">Female</option>
               <option value="other">Other</option>
-              <option value="prefer_not_to_say">Prefer not to say</option>
             </select>
           </div>
 
-          <div className="form-group">
+          <div>
             <label>Nationality</label>
-            <input
-              type="text"
-              name="nationality"
-              value={formData.nationality}
-              onChange={handleChange}
-              disabled={!isEditing}
-              placeholder="Country"
-            />
+            <input type="text" name="nationality" value={formData.nationality} onChange={handleChange} disabled={!isEditing} style={{width: '100%', padding: '0.5rem'}} />
           </div>
 
-          <div className="form-group">
+          <div>
             <label>Address</label>
-            <textarea
-              name="address"
-              value={formData.address}
-              onChange={handleChange}
-              disabled={!isEditing}
-              rows="3"
-              placeholder="Full address"
-            />
+            <textarea name="address" value={formData.address} onChange={handleChange} disabled={!isEditing} rows="3" style={{width: '100%', padding: '0.5rem'}} />
           </div>
         </div>
 
         {isEditing && (
-          <div className="button-group">
-            <button 
-              type="submit" 
-              className="btn-primary" 
-              disabled={saving}
-            >
+          <div style={{marginTop: '1rem', display: 'flex', gap: '1rem'}}>
+            <button type="submit" disabled={saving} style={{padding: '0.5rem 1rem', cursor: 'pointer'}}>
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
-            <button 
-              type="button" 
-              onClick={() => {
-                setIsEditing(false);
-                fetchProfile(); // Reset form
-              }} 
-              className="btn-secondary"
-              disabled={saving}
-            >
+            <button type="button" onClick={() => { setIsEditing(false); fetchProfile(); }} style={{padding: '0.5rem 1rem', cursor: 'pointer'}}>
               Cancel
             </button>
           </div>

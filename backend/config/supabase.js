@@ -1,15 +1,15 @@
 const { createClient } = require('@supabase/supabase-js');
 
-// Initialize Supabase client with Anon Key (for client-side operations)
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
-);
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
-// Initialize Admin Supabase client (for server-side privileged operations)
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('❌ Missing Supabase credentials in .env file');
+  process.exit(1);
+}
 
-module.exports = { supabase, supabaseAdmin };
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+console.log('✓ Supabase client initialized');
+
+module.exports = supabase;

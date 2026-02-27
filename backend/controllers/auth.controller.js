@@ -1,105 +1,68 @@
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { supabase, supabaseAdmin } = require('../config/supabase');
+const supabase = require('../config/supabase');
 
-/**
- * Register a new user (Student or Admin)
- * POST /api/auth/register
- */
-const register = async (req, res) => {
+exports.register = async (req, res) => {
   try {
-    const { email, password, confirmPassword, firstName, lastName, role = 'student' } = req.body;
+    const { email, password, firstName, lastName } = req.body;
 
-    // Validation
-    if (!email || !password || !confirmPassword || !firstName || !lastName) {
-      return res.status(400).json({ 
-        error: 'All fields are required.' 
-      });
+    console.log('=== REGISTER START ===');
+    console.log('Email:', email);
+
+    if (!email || !password || !firstName || !lastName) {
+      return res.status(400).json({ error: 'All fields are required' });
     }
 
-    // Check if passwords match
-    if (password !== confirmPassword) {
-      return res.status(400).json({ 
-        error: 'Passwords do not match.' 
-      });
-    }
-
-    // Password strength validation
-    if (password.length < 8) {
-      return res.status(400).json({ 
-        error: 'Password must be at least 8 characters long.' 
-      });
-    }
-
-    // Email format validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ 
-        error: 'Invalid email format.' 
-      });
-    }
-
-    // Check if user already exists
+    // Check if user exists
     const { data: existingUser } = await supabase
       .from('users')
       .select('id')
       .eq('email', email.toLowerCase())
-      .single();
+      .maybeSingle();
 
     if (existingUser) {
-      return res.status(409).json({ 
-        error: 'User with this email already exists.' 
-      });
+      console.log('Email already exists');
+      return res.status(409).json({ error: 'Email already registered' });
     }
 
     // Hash password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    console.log('Hashing password...');
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    console.log('Password hashed successfully');
 
-    // Create user
+    // Create user - USING 'password' COLUMN NOT 'password_hash'
+    console.log('Creating user in database...');
     const { data: newUser, error: insertError } = await supabase
       .from('users')
-      .insert([
-        {
-          email: email.toLowerCase(),
-          password: hashedPassword,
-          first_name: firstName,
-          last_name: lastName,
-          role: role
-        }
-      ])
+      .insert([{
+        email: email.toLowerCase(),
+        password: hashedPassword,  // CHANGED FROM password_hash
+        first_name: firstName,
+        last_name: lastName,
+        role: 'student'
+      }])
       .select()
       .single();
 
     if (insertError) {
-      console.error('Database error:', insertError);
-      return res.status(500).json({ 
-        error: 'Failed to create user account.',
-        details: insertError.message || insertError
-      });
+      console.error('Insert error:', insertError);
+      return res.status(500).json({ error: 'Failed to create user account' });
     }
 
-    // If student, create profile
-    if (role === 'student') {
-      await supabase
-        .from('student_profiles')
-        .insert([{ user_id: newUser.id }]);
-    }
+    console.log('User created:', newUser.id);
 
-    // Generate JWT token
+    // Generate JWT
     const token = jwt.sign(
-      { 
-        id: newUser.id, 
-        email: newUser.email, 
-        role: newUser.role 
-      },
+      { id: newUser.id, email: newUser.email, role: newUser.role },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    // Return success response (exclude password)
+    console.log('=== REGISTER SUCCESS ===');
+
     res.status(201).json({
-      message: 'User registered successfully.',
+      message: 'Registration successful',
       token,
       user: {
         id: newUser.id,
@@ -111,64 +74,68 @@ const register = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ 
-      error: 'An error occurred during registration.' 
-    });
+    console.error('=== REGISTER ERROR ===');
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An error occurred during registration' });
   }
 };
 
-/**
- * Login user
- * POST /api/auth/login
- */
-const login = async (req, res) => {
+exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validation
+    console.log('=== LOGIN START ===');
+    console.log('Email:', email);
+
     if (!email || !password) {
-      return res.status(400).json({ 
-        error: 'Email and password are required.' 
-      });
+      return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    // Find user by email (using admin client because user is not yet authenticated)
-    const { data: user, error: fetchError } = await supabaseAdmin
+    // Find user
+    const { data: user, error: userError } = await supabase
       .from('users')
       .select('*')
       .eq('email', email.toLowerCase())
-      .single();
+      .maybeSingle();
 
-    if (fetchError || !user) {
-      return res.status(401).json({ 
-        error: 'Invalid email or password.' 
-      });
+    if (userError) {
+      console.error('Database error:', userError);
+      return res.status(500).json({ error: 'Database error' });
     }
 
-    // Verify password
+    if (!user) {
+      console.log('User not found');
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    console.log('User found:', user.id);
+    console.log('Has password:', !!user.password);
+
+    if (!user.password) {
+      console.error('User has no password - corrupted account');
+      return res.status(500).json({ error: 'Account data corrupted. Please contact support.' });
+    }
+
+    // Verify password - USING 'password' COLUMN NOT 'password_hash'
+    console.log('Comparing passwords...');
     const isValidPassword = await bcrypt.compare(password, user.password);
-    
+    console.log('Password valid:', isValidPassword);
+
     if (!isValidPassword) {
-      return res.status(401).json({ 
-        error: 'Invalid email or password.' 
-      });
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Generate JWT token
+    // Generate JWT
     const token = jwt.sign(
-      { 
-        id: user.id, 
-        email: user.email, 
-        role: user.role 
-      },
+      { id: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    // Return success response (exclude password)
-    res.status(200).json({
-      message: 'Login successful.',
+    console.log('=== LOGIN SUCCESS ===');
+
+    res.json({
+      message: 'Login successful',
       token,
       user: {
         id: user.id,
@@ -180,68 +147,42 @@ const login = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ 
-      error: 'An error occurred during login.' 
-    });
+    console.error('=== LOGIN ERROR ===');
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An error occurred during login' });
   }
 };
 
-/**
- * Get current user information
- * GET /api/auth/user
- */
-const getCurrentUser = async (req, res) => {
+exports.getCurrentUser = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Fetch user details
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, email, first_name, last_name, role, created_at')
+      .select('id, email, first_name, last_name, role')
       .eq('id', userId)
       .single();
 
     if (error || !user) {
-      return res.status(404).json({ 
-        error: 'User not found.' 
-      });
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    res.status(200).json({
+    res.json({
       user: {
         id: user.id,
         email: user.email,
         firstName: user.first_name,
         lastName: user.last_name,
-        role: user.role,
-        createdAt: user.created_at
+        role: user.role
       }
     });
 
   } catch (error) {
-    console.error('Get current user error:', error);
-    res.status(500).json({ 
-      error: 'An error occurred while fetching user information.' 
-    });
+    console.error('Get user error:', error);
+    res.status(500).json({ error: 'Failed to fetch user' });
   }
 };
 
-/**
- * Logout user (client-side token removal)
- * POST /api/auth/logout
- */
-const logout = async (req, res) => {
-  // With JWT, logout is handled client-side by removing the token
-  // This endpoint exists for consistency and future extensions
-  res.status(200).json({ 
-    message: 'Logout successful. Please remove the token from client storage.' 
-  });
-};
-
-module.exports = {
-  register,
-  login,
-  getCurrentUser,
-  logout
+exports.logout = async (req, res) => {
+  res.json({ message: 'Logout successful' });
 };

@@ -31,9 +31,9 @@ const createApplication = async (req, res) => {
     }
 
     // Validate GPA range
-    if (highSchoolGpa && (highSchoolGpa < 0 || highSchoolGpa > 4.0)) {
+    if (highSchoolGpa && (highSchoolGpa < 75 || highSchoolGpa > 100)) {
       return res.status(400).json({ 
-        error: 'GPA must be between 0 and 4.0.' 
+        error: 'General Average must be between 75 and 100.' 
       });
     }
 

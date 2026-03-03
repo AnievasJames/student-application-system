@@ -1,458 +1,229 @@
 const supabase = require('../config/supabase');
 
 /**
- * Get all applications (admin only)
- * GET /api/admin/applications
+ * Get all applications (Admin only)
  */
 const getAllApplications = async (req, res) => {
   try {
-    const { status, sortBy = 'submitted_at', order = 'desc' } = req.query;
+    const { status } = req.query;
+
+    console.log('Fetching all applications, status filter:', status);
 
     let query = supabase
       .from('applications')
-      .select(`
-        *,
-        users (
-          id,
-          email,
-          first_name,
-          last_name
-        )
-      `);
+      .select('*')
+      .order('submitted_at', { ascending: false });
 
-    // Filter by status if provided
+    // Apply status filter if provided
     if (status) {
       query = query.eq('status', status);
     }
-
-    // Apply sorting
-    query = query.order(sortBy, { ascending: order === 'asc' });
 
     const { data: applications, error } = await query;
 
     if (error) {
       console.error('Fetch all applications error:', error);
-      return res.status(500).json({ 
-        error: 'Failed to fetch applications.' 
-      });
+      throw error;
     }
 
-    // Get document counts for each application
-    const applicationsWithCounts = await Promise.all(
-      applications.map(async (app) => {
-        const { count } = await supabase
-          .from('documents')
-          .select('id', { count: 'exact', head: true })
-          .eq('application_id', app.id);
-
-        return {
-          ...app,
-          documentCount: count || 0
-        };
-      })
-    );
+    console.log('Applications fetched:', applications?.length);
 
     res.status(200).json({
-      applications: applicationsWithCounts,
-      totalCount: applicationsWithCounts.length
+      applications: applications || []
     });
 
   } catch (error) {
     console.error('Get all applications error:', error);
-    res.status(500).json({ 
-      error: 'An error occurred while fetching applications.' 
+    res.status(500).json({
+      error: 'Failed to fetch applications'
     });
   }
 };
 
 /**
- * Get application details by ID (admin only)
- * GET /api/admin/applications/:id
- */
-const getApplicationDetails = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Fetch application with user details
-    const { data: application, error: appError } = await supabase
-      .from('applications')
-      .select(`
-        *,
-        users (
-          id,
-          email,
-          first_name,
-          last_name,
-          created_at
-        )
-      `)
-      .eq('id', id)
-      .single();
-
-    if (appError || !application) {
-      return res.status(404).json({ 
-        error: 'Application not found.' 
-      });
-    }
-
-    // Fetch documents
-    const { data: documents } = await supabase
-      .from('documents')
-      .select('*')
-      .eq('application_id', id)
-      .order('uploaded_at', { ascending: false });
-
-    // Fetch student profile
-    const { data: profile } = await supabase
-      .from('student_profiles')
-      .select('*')
-      .eq('user_id', application.user_id)
-      .single();
-
-    res.status(200).json({
-      application,
-      documents: documents || [],
-      profile: profile || null
-    });
-
-  } catch (error) {
-    console.error('Get application details error:', error);
-    res.status(500).json({ 
-      error: 'An error occurred while fetching application details.' 
-    });
-  }
-};
-
-/**
- * Update application status (admin only)
- * PUT /api/admin/applications/:id/status
- */
-const updateApplicationStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-    const adminId = req.user.id;
-
-    // Validation
-    const validStatuses = ['submitted', 'under_review', 'evaluated', 'accepted', 'rejected'];
-    if (!status || !validStatuses.includes(status)) {
-      return res.status(400).json({ 
-        error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` 
-      });
-    }
-
-    // Check if application exists
-    const { data: existingApp } = await supabase
-      .from('applications')
-      .select('id, status')
-      .eq('id', id)
-      .single();
-
-    if (!existingApp) {
-      return res.status(404).json({ 
-        error: 'Application not found.' 
-      });
-    }
-
-    // Update application status
-    const { data: updatedApplication, error: updateError } = await supabase
-      .from('applications')
-      .update({
-        status,
-        reviewed_by: adminId,
-        reviewed_at: new Date().toISOString()
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (updateError) {
-      console.error('Status update error:', updateError);
-      return res.status(500).json({ 
-        error: 'Failed to update application status.' 
-      });
-    }
-
-    // Log admin action
-    await supabase
-      .from('admin_actions')
-      .insert([
-        {
-          admin_id: adminId,
-          action_type: 'status_update',
-          target_type: 'application',
-          target_id: id,
-          details: {
-            old_status: existingApp.status,
-            new_status: status
-          }
-        }
-      ]);
-
-    res.status(200).json({
-      message: 'Application status updated successfully.',
-      application: updatedApplication
-    });
-
-  } catch (error) {
-    console.error('Update application status error:', error);
-    res.status(500).json({ 
-      error: 'An error occurred while updating application status.' 
-    });
-  }
-};
-
-/**
- * Update AI evaluation for an application (admin only)
- * PUT /api/admin/applications/:id/ai-evaluation
- */
-const updateAIEvaluation = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { aiScore, aiRanking } = req.body;
-    const adminId = req.user.id;
-
-    // Validation
-    if (aiScore === undefined || aiRanking === undefined) {
-      return res.status(400).json({ 
-        error: 'AI score and ranking are required.' 
-      });
-    }
-
-    if (aiScore < 0 || aiScore > 100) {
-      return res.status(400).json({ 
-        error: 'AI score must be between 0 and 100.' 
-      });
-    }
-
-    // Check if application exists
-    const { data: existingApp } = await supabase
-      .from('applications')
-      .select('id')
-      .eq('id', id)
-      .single();
-
-    if (!existingApp) {
-      return res.status(404).json({ 
-        error: 'Application not found.' 
-      });
-    }
-
-    // Update AI evaluation
-    const { data: updatedApplication, error: updateError } = await supabase
-      .from('applications')
-      .update({
-        ai_score: aiScore,
-        ai_ranking: aiRanking,
-        ai_evaluation_date: new Date().toISOString()
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (updateError) {
-      console.error('AI evaluation update error:', updateError);
-      return res.status(500).json({ 
-        error: 'Failed to update AI evaluation.' 
-      });
-    }
-
-    // Log admin action
-    await supabase
-      .from('admin_actions')
-      .insert([
-        {
-          admin_id: adminId,
-          action_type: 'ai_evaluation',
-          target_type: 'application',
-          target_id: id,
-          details: {
-            ai_score: aiScore,
-            ai_ranking: aiRanking
-          }
-        }
-      ]);
-
-    res.status(200).json({
-      message: 'AI evaluation updated successfully.',
-      application: updatedApplication
-    });
-
-  } catch (error) {
-    console.error('Update AI evaluation error:', error);
-    res.status(500).json({ 
-      error: 'An error occurred while updating AI evaluation.' 
-    });
-  }
-};
-
-/**
- * Get application statistics (admin only)
- * GET /api/admin/statistics
+ * Get application statistics (Admin only)
  */
 const getStatistics = async (req, res) => {
   try {
-    // Get total applications count
-    const { count: totalApplications } = await supabase
-      .from('applications')
-      .select('id', { count: 'exact', head: true });
+    console.log('Fetching statistics');
 
-    // Get counts by status
-    const statusCounts = {};
-    const statuses = ['submitted', 'under_review', 'evaluated', 'accepted', 'rejected'];
+    // Get all applications
+    const { data: applications, error } = await supabase
+      .from('applications')
+      .select('*');
+
+    if (error) throw error;
+
+    // Calculate statistics
+    const totalApplications = applications.length;
     
-    for (const status of statuses) {
-      const { count } = await supabase
-        .from('applications')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', status);
-      statusCounts[status] = count || 0;
-    }
+    const statusCounts = {
+      submitted: applications.filter(app => app.status === 'submitted').length,
+      under_review: applications.filter(app => app.status === 'under_review').length,
+      evaluated: applications.filter(app => app.status === 'evaluated').length,
+      accepted: applications.filter(app => app.status === 'accepted').length,
+      rejected: applications.filter(app => app.status === 'rejected').length
+    };
 
-    // Get average AI score
-    const { data: aiScores } = await supabase
-      .from('applications')
-      .select('ai_score')
-      .not('ai_score', 'is', null);
-
-    const averageAIScore = aiScores && aiScores.length > 0
-      ? aiScores.reduce((sum, app) => sum + parseFloat(app.ai_score), 0) / aiScores.length
+    // Calculate average AI score
+    const applicationsWithScore = applications.filter(app => app.ai_score);
+    const averageAIScore = applicationsWithScore.length > 0
+      ? Math.round(applicationsWithScore.reduce((sum, app) => sum + app.ai_score, 0) / applicationsWithScore.length)
       : 0;
 
-    // Get recent applications (last 7 days)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    
-    const { count: recentApplications } = await supabase
-      .from('applications')
-      .select('id', { count: 'exact', head: true })
-      .gte('submitted_at', sevenDaysAgo.toISOString());
+    console.log('Statistics calculated:', { totalApplications, statusCounts, averageAIScore });
 
     res.status(200).json({
       statistics: {
-        totalApplications: totalApplications || 0,
+        totalApplications,
         statusCounts,
-        averageAIScore: averageAIScore.toFixed(2),
-        recentApplications: recentApplications || 0
+        averageAIScore
       }
     });
 
   } catch (error) {
     console.error('Get statistics error:', error);
-    res.status(500).json({ 
-      error: 'An error occurred while fetching statistics.' 
+    res.status(500).json({
+      error: 'Failed to fetch statistics'
     });
   }
 };
 
 /**
- * Get admin action logs (admin only)
- * GET /api/admin/logs
+ * Get single application details (Admin only)
  */
-const getAdminLogs = async (req, res) => {
+const getApplicationDetails = async (req, res) => {
   try {
-    const { limit = 50, offset = 0 } = req.query;
+    const { applicationId } = req.params;
 
-    const { data: logs, error } = await supabase
-      .from('admin_actions')
-      .select(`
-        *,
-        users (
-          email,
-          first_name,
-          last_name
-        )
-      `)
-      .order('created_at', { ascending: false })
-      .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+    console.log('Fetching application details:', applicationId);
 
-    if (error) {
-      console.error('Fetch admin logs error:', error);
-      return res.status(500).json({ 
-        error: 'Failed to fetch admin logs.' 
-      });
+    // Get application
+    const { data: application, error: appError } = await supabase
+      .from('applications')
+      .select('*')
+      .eq('id', applicationId)
+      .single();
+
+    if (appError || !application) {
+      return res.status(404).json({ error: 'Application not found' });
     }
 
+    // Get documents
+    const { data: documents, error: docsError } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('application_id', applicationId);
+
+    console.log('Application details fetched');
+
     res.status(200).json({
-      logs: logs || []
+      application,
+      documents: documents || []
     });
 
   } catch (error) {
-    console.error('Get admin logs error:', error);
-    res.status(500).json({ 
-      error: 'An error occurred while fetching admin logs.' 
+    console.error('Get application details error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch application details'
     });
   }
 };
 
 /**
- * Delete application (admin only)
- * DELETE /api/admin/applications/:id
+ * Update application status (Admin only)
+ */
+const updateApplicationStatus = async (req, res) => {
+  try {
+    const { applicationId } = req.params;
+    const { status } = req.body;
+
+    console.log('Updating application status:', applicationId, status);
+
+    if (!status) {
+      return res.status(400).json({ error: 'Status is required' });
+    }
+
+    const validStatuses = ['submitted', 'under_review', 'evaluated', 'accepted', 'rejected'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    const { data, error } = await supabase
+      .from('applications')
+      .update({ 
+        status,
+        reviewed_by: req.user.id,
+        updated_at: new Date()
+      })
+      .eq('id', applicationId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Update status error:', error);
+      throw error;
+    }
+
+    console.log('Status updated successfully');
+
+    res.status(200).json({
+      message: 'Application status updated successfully',
+      application: data
+    });
+
+  } catch (error) {
+    console.error('Update application status error:', error);
+    res.status(500).json({
+      error: 'Failed to update application status'
+    });
+  }
+};
+
+/**
+ * Delete application (Admin only)
  */
 const deleteApplication = async (req, res) => {
   try {
-    const { id } = req.params;
-    const adminId = req.user.id;
+    const { applicationId } = req.params;
 
-    // Check if application exists
-    const { data: application } = await supabase
-      .from('applications')
-      .select('id, full_name')
-      .eq('id', id)
-      .single();
+    console.log('Deleting application:', applicationId);
 
-    if (!application) {
-      return res.status(404).json({ 
-        error: 'Application not found.' 
-      });
-    }
-
-    // Log the action before deletion
+    // Delete documents first
     await supabase
-      .from('admin_actions')
-      .insert([
-        {
-          admin_id: adminId,
-          action_type: 'delete_application',
-          target_type: 'application',
-          target_id: id,
-          details: {
-            application_name: application.full_name
-          }
-        }
-      ]);
+      .from('documents')
+      .delete()
+      .eq('application_id', applicationId);
 
-    // Delete application (cascade will handle documents)
-    const { error: deleteError } = await supabase
+    // Delete application
+    const { error } = await supabase
       .from('applications')
       .delete()
-      .eq('id', id);
+      .eq('id', applicationId);
 
-    if (deleteError) {
-      console.error('Application deletion error:', deleteError);
-      return res.status(500).json({ 
-        error: 'Failed to delete application.' 
-      });
+    if (error) {
+      console.error('Delete application error:', error);
+      throw error;
     }
 
-    res.status(200).json({ 
-      message: 'Application deleted successfully.' 
+    console.log('Application deleted successfully');
+
+    res.status(200).json({
+      message: 'Application deleted successfully'
     });
 
   } catch (error) {
     console.error('Delete application error:', error);
-    res.status(500).json({ 
-      error: 'An error occurred while deleting the application.' 
+    res.status(500).json({
+      error: 'Failed to delete application'
     });
   }
 };
 
 module.exports = {
   getAllApplications,
+  getStatistics,
   getApplicationDetails,
   updateApplicationStatus,
-  updateAIEvaluation,
-  getStatistics,
-  getAdminLogs,
   deleteApplication
 };

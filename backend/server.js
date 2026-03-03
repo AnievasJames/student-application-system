@@ -9,6 +9,7 @@ const profileRoutes = require('./routes/profile.routes');
 const applicationRoutes = require('./routes/application.routes');
 const documentRoutes = require('./routes/document.routes');
 const adminRoutes = require('./routes/admin.routes');
+const aiRoutes = require('./routes/ai.routes');
 
 // Initialize Express app
 const app = express();
@@ -36,6 +37,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/ai', aiRoutes);
 app.use('/api/admin', adminRoutes);
 
 // 404 handler

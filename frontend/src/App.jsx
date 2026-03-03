@@ -5,9 +5,11 @@ import Register from './components/auth/Register';
 import Profile from './components/student/Profile';
 import ApplicationForm from './components/student/ApplicationForm';
 import ApplicationStatus from './components/student/ApplicationStatus';
+import ApplicationDetail from './components/student/ApplicationDetail';
 import DocumentUpload from './components/student/DocumentUpload';
 import Dashboard from './components/admin/Dashboard';
-import ApplicationDetail from './components/admin/ApplicationDetail';
+import ApplicationsList from './components/admin/ApplicationsList';
+import AdminApplicationDetail from './components/admin/ApplicationDetail';
 import Navigation from './components/Navigation';
 
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
@@ -60,10 +62,8 @@ const AppContent = () => {
 
   return (
     <>
-      {/* Show sidebar ONLY when logged in and NOT on auth pages */}
       {isAuthenticated && !isAuthPage && <Navigation />}
       
-      {/* Adjust content margin when sidebar is present */}
       <div className={isAuthenticated && !isAuthPage ? 'content-with-sidebar' : ''}>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -73,10 +73,12 @@ const AppContent = () => {
           <Route path="/student/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/student/apply" element={<ProtectedRoute><ApplicationForm /></ProtectedRoute>} />
           <Route path="/student/applications" element={<ProtectedRoute><ApplicationStatus /></ProtectedRoute>} />
+          <Route path="/student/applications/:id" element={<ProtectedRoute><ApplicationDetail /></ProtectedRoute>} />
           <Route path="/student/applications/:applicationId/documents" element={<ProtectedRoute><DocumentUpload /></ProtectedRoute>} />
 
           <Route path="/admin/dashboard" element={<ProtectedRoute requireAdmin={true}><Dashboard /></ProtectedRoute>} />
-          <Route path="/admin/applications/:id" element={<ProtectedRoute requireAdmin={true}><ApplicationDetail /></ProtectedRoute>} />
+          <Route path="/admin/applications" element={<ProtectedRoute requireAdmin={true}><ApplicationsList /></ProtectedRoute>} />
+          <Route path="/admin/applications/:id" element={<ProtectedRoute requireAdmin={true}><AdminApplicationDetail /></ProtectedRoute>} />
 
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />

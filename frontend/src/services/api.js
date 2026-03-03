@@ -109,3 +109,11 @@ export const adminService = {
 };
 
 export default api;
+
+// ====================================
+// AI Evaluation Service
+// ====================================
+export const aiService = {
+  evaluateApplication: (applicationId) => api.post(`/ai/evaluate/${applicationId}`),
+  evaluateAllApplications: () => api.post('/ai/evaluate-all')
+};

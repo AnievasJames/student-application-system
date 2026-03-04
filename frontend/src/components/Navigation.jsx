@@ -9,15 +9,15 @@ const Navigation = () => {
   const isActive = (path) => location.pathname === path;
 
   const studentLinks = [
-    { path: '/student/dashboard', label: 'Home', icon: '🏠' },
-    { path: '/student/apply', label: 'Application', icon: '📝' },
-    { path: '/student/applications', label: 'Status', icon: '📊' },
-    { path: '/student/profile', label: 'Profile', icon: '👤' }
+    { path: '/student/dashboard', label: 'Home', icon: 'home' },
+    { path: '/student/apply', label: 'Application', icon: 'edit_document' },
+    { path: '/student/applications', label: 'Status', icon: 'fact_check' },
+    { path: '/student/profile', label: 'Profile', icon: 'person' }
   ];
 
   const adminLinks = [
-    { path: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
-    { path: '/admin/applications', label: 'Applications', icon: '📝' }
+    { path: '/admin/dashboard', label: 'Dashboard', icon: 'dashboard' },
+    { path: '/admin/applications', label: 'Applications', icon: 'description' }
   ];
 
   const links = isAdmin ? adminLinks : studentLinks;
@@ -33,14 +33,15 @@ const Navigation = () => {
         <div className="top-bar-right">
           <span className="user-name">{user?.firstName} {user?.lastName}</span>
           <span className="user-badge">{isAdmin ? 'Admin' : 'Student'}</span>
-          <button onClick={logout} className="logout-btn">Logout</button>
         </div>
       </div>
 
       {/* Sidebar */}
       <div className="sidebar">
         <div className="sidebar-header">
-          <div className="sidebar-logo">✱</div>
+          <div className="sidebar-logo">
+            <span className="material-symbols-rounded">school</span>
+          </div>
           <div className="sidebar-title">
             {isAdmin ? 'Admin' : 'Student'}<br/>Portal
           </div>
@@ -53,10 +54,17 @@ const Navigation = () => {
               className={`sidebar-item ${isActive(link.path) ? 'active' : ''}`}
               onClick={() => navigate(link.path)}
             >
-              <span className="sidebar-icon">{link.icon}</span>
+              <span className="sidebar-icon material-symbols-rounded">{link.icon}</span>
               <span className="sidebar-label">{link.label}</span>
             </div>
           ))}
+        </div>
+
+        <div className="sidebar-footer">
+          <button onClick={logout} className="sidebar-logout-btn">
+            <span className="sidebar-icon material-symbols-rounded">logout</span>
+            <span className="sidebar-label">Logout</span>
+          </button>
         </div>
       </div>
     </>

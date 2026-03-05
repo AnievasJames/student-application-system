@@ -38,4 +38,46 @@ router.put('/applications/:applicationId/status', authenticateToken, requireAdmi
  */
 router.delete('/applications/:applicationId', authenticateToken, requireAdmin, adminController.deleteApplication);
 
+/**
+ * @route   GET /api/admin/users
+ * @desc    Get all users
+ * @access  Private (Admin only)
+ */
+router.get('/users', authenticateToken, requireAdmin, adminController.getAllUsers);
+
+/**
+ * @route   POST /api/admin/users
+ * @desc    Create new user
+ * @access  Private (Admin only)
+ */
+router.post('/users', authenticateToken, requireAdmin, adminController.createUser);
+
+/**
+ * @route   PUT /api/admin/users/:userId
+ * @desc    Update user
+ * @access  Private (Admin only)
+ */
+router.put('/users/:userId', authenticateToken, requireAdmin, adminController.updateUser);
+
+/**
+ * @route   DELETE /api/admin/users/:userId
+ * @desc    Delete user
+ * @access  Private (Admin only)
+ */
+router.delete('/users/:userId', authenticateToken, requireAdmin, adminController.deleteUser);
+
+/**
+ * @route   GET /api/admin/security-settings
+ * @desc    Get security settings
+ * @access  Private (Admin only)
+ */
+router.get('/security-settings', authenticateToken, requireAdmin, adminController.getSecuritySettings);
+
+/**
+ * @route   PUT /api/admin/security-settings
+ * @desc    Update security settings
+ * @access  Private (Admin only)
+ */
+router.put('/security-settings', authenticateToken, requireAdmin, adminController.updateSecuritySettings);
+
 module.exports = router;

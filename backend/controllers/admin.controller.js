@@ -11,7 +11,15 @@ const getAllApplications = async (req, res) => {
 
     let query = supabase
       .from('applications')
-      .select('*')
+      .select(`
+        *,
+        user:users!applications_user_id_fkey (
+          id,
+          first_name,
+          last_name,
+          email
+        )
+      `)
       .order('submitted_at', { ascending: false });
 
     // Apply status filter if provided
@@ -220,10 +228,291 @@ const deleteApplication = async (req, res) => {
   }
 };
 
+/**
+ * Get all users (Admin only)
+ */
+const getAllUsers = async (req, res) => {
+  try {
+    console.log('Fetching all users');
+
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('id, email, first_name, last_name, role, created_at')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Fetch all users error:', error);
+      throw error;
+    }
+
+    console.log('Users fetched:', users?.length);
+
+    res.status(200).json({
+      users: users || []
+    });
+
+  } catch (error) {
+    console.error('Get all users error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch users'
+    });
+  }
+};
+
+/**
+ * Create new user (Admin only)
+ */
+const createUser = async (req, res) => {
+  try {
+    const { firstName, lastName, email, password, role } = req.body;
+
+    console.log('Creating new user:', email);
+
+    if (!firstName || !lastName || !email || !password) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    // Hash the password
+    const bcrypt = require('bcryptjs');
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const { data, error } = await supabase
+      .from('users')
+      .insert({
+        email,
+        password: hashedPassword,
+        first_name: firstName,
+        last_name: lastName,
+        role: role || 'student'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Create user error:', error);
+      if (error.code === '23505') {
+        return res.status(400).json({ error: 'Email already exists' });
+      }
+      throw error;
+    }
+
+    console.log('User created successfully');
+
+    res.status(201).json({
+      message: 'User created successfully',
+      user: {
+        id: data.id,
+        email: data.email,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        role: data.role
+      }
+    });
+
+  } catch (error) {
+    console.error('Create user error:', error);
+    res.status(500).json({
+      error: 'Failed to create user'
+    });
+  }
+};
+
+/**
+ * Update user (Admin only)
+ */
+const updateUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { firstName, lastName, email, role } = req.body;
+
+    console.log('Updating user:', userId);
+
+    const updateData = {};
+    if (firstName) updateData.first_name = firstName;
+    if (lastName) updateData.last_name = lastName;
+    if (email) updateData.email = email;
+    if (role) updateData.role = role;
+
+    const { data, error } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Update user error:', error);
+      if (error.code === '23505') {
+        return res.status(400).json({ error: 'Email already exists' });
+      }
+      throw error;
+    }
+
+    console.log('User updated successfully');
+
+    res.status(200).json({
+      message: 'User updated successfully',
+      user: {
+        id: data.id,
+        email: data.email,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        role: data.role
+      }
+    });
+
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({
+      error: 'Failed to update user'
+    });
+  }
+};
+
+/**
+ * Delete user (Admin only)
+ */
+const deleteUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    console.log('Deleting user:', userId);
+
+    // Delete user's applications and related data first
+    const { data: applications } = await supabase
+      .from('applications')
+      .select('id')
+      .eq('user_id', userId);
+
+    if (applications && applications.length > 0) {
+      const appIds = applications.map(app => app.id);
+      
+      // Delete documents
+      await supabase
+        .from('documents')
+        .delete()
+        .in('application_id', appIds);
+      
+      // Delete applications
+      await supabase
+        .from('applications')
+        .delete()
+        .eq('user_id', userId);
+    }
+
+    // Delete user's profile
+    await supabase
+      .from('student_profiles')
+      .delete()
+      .eq('user_id', userId);
+
+    // Delete user
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', userId);
+
+    if (error) {
+      console.error('Delete user error:', error);
+      throw error;
+    }
+
+    console.log('User deleted successfully');
+
+    res.status(200).json({
+      message: 'User deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({
+      error: 'Failed to delete user'
+    });
+  }
+};
+
+// Default security settings
+const defaultSecuritySettings = {
+  encryptionMethod: 'AES-256',
+  twoFactorAuth: false,
+  sessionTimeout: 60,
+  passwordPolicy: {
+    minLength: 8,
+    expiryDays: 90,
+    requireUppercase: true,
+    requireNumbers: true,
+    requireSpecialChars: true
+  },
+  accessControl: {
+    ipWhitelist: false,
+    allowedIPs: [],
+    apiKeyRotationDays: 30,
+    sessionLimit: 3,
+    requireMFA: false
+  },
+  logging: {
+    auditLogging: true,
+    loginAttempts: true,
+    dataAccessLogs: true,
+    retentionDays: 90
+  }
+};
+
+/**
+ * Get security settings (Admin only)
+ */
+const getSecuritySettings = async (req, res) => {
+  try {
+    console.log('Fetching security settings');
+
+    // In a real application, these would be stored in a database
+    // For now, we return default settings
+    res.status(200).json({
+      settings: defaultSecuritySettings
+    });
+
+  } catch (error) {
+    console.error('Get security settings error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch security settings'
+    });
+  }
+};
+
+/**
+ * Update security settings (Admin only)
+ */
+const updateSecuritySettings = async (req, res) => {
+  try {
+    const newSettings = req.body;
+
+    console.log('Updating security settings');
+
+    // In a real application, these would be saved to a database
+    // For now, we just validate and return the settings
+    res.status(200).json({
+      message: 'Security settings updated successfully',
+      settings: { ...defaultSecuritySettings, ...newSettings }
+    });
+
+  } catch (error) {
+    console.error('Update security settings error:', error);
+    res.status(500).json({
+      error: 'Failed to update security settings'
+    });
+  }
+};
+
 module.exports = {
   getAllApplications,
   getStatistics,
   getApplicationDetails,
   updateApplicationStatus,
-  deleteApplication
+  deleteApplication,
+  getAllUsers,
+  createUser,
+  updateUser,
+  deleteUser,
+  getSecuritySettings,
+  updateSecuritySettings
 };

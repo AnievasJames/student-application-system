@@ -10,6 +10,9 @@ import DocumentUpload from './components/student/DocumentUpload';
 import Dashboard from './components/admin/Dashboard';
 import ApplicationsList from './components/admin/ApplicationsList';
 import AdminApplicationDetail from './components/admin/ApplicationDetail';
+import AIRankings from './components/admin/AIRankings';
+import ManageUsers from './components/admin/ManageUsers';
+import SecuritySettings from './components/admin/SecuritySettings';
 import Navigation from './components/Navigation';
 import { useState, useEffect } from 'react';
 
@@ -192,6 +195,9 @@ const AppContent = () => {
           <Route path="/admin/dashboard" element={<ProtectedRoute requireAdmin={true}><Dashboard /></ProtectedRoute>} />
           <Route path="/admin/applications" element={<ProtectedRoute requireAdmin={true}><ApplicationsList /></ProtectedRoute>} />
           <Route path="/admin/applications/:id" element={<ProtectedRoute requireAdmin={true}><AdminApplicationDetail /></ProtectedRoute>} />
+          <Route path="/admin/ai-rankings" element={<ProtectedRoute requireAdmin={true}><AIRankings /></ProtectedRoute>} />
+          <Route path="/admin/manage-users" element={<ProtectedRoute requireAdmin={true}><ManageUsers /></ProtectedRoute>} />
+          <Route path="/admin/security-settings" element={<ProtectedRoute requireAdmin={true}><SecuritySettings /></ProtectedRoute>} />
 
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />

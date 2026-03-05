@@ -17,7 +17,10 @@ const Navigation = () => {
 
   const adminLinks = [
     { path: '/admin/dashboard', label: 'Dashboard', icon: 'dashboard' },
-    { path: '/admin/applications', label: 'Applications', icon: 'description' }
+    { path: '/admin/applications', label: 'Applications', icon: 'description' },
+    { path: '/admin/ai-rankings', label: 'AI Rankings', icon: 'smart_toy' },
+    { path: '/admin/manage-users', label: 'Manage Users', icon: 'people' },
+    { path: '/admin/security-settings', label: 'Security', icon: 'security' }
   ];
 
   const links = isAdmin ? adminLinks : studentLinks;

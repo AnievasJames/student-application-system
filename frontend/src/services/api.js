@@ -97,6 +97,7 @@ export const documentService = {
 // ====================================
 
 export const adminService = {
+  // Applications
   getAllApplications: (params) => api.get('/admin/applications', { params }),
   getApplicationDetails: (id) => api.get(`/admin/applications/${id}`),
   updateApplicationStatus: (id, status) => 
@@ -104,8 +105,20 @@ export const adminService = {
   updateAIEvaluation: (id, aiScore, aiRanking) => 
     api.put(`/admin/applications/${id}/ai-evaluation`, { aiScore, aiRanking }),
   deleteApplication: (id) => api.delete(`/admin/applications/${id}`),
+  
+  // Statistics
   getStatistics: () => api.get('/admin/statistics'),
-  getAdminLogs: (params) => api.get('/admin/logs', { params })
+  getAdminLogs: (params) => api.get('/admin/logs', { params }),
+  
+  // User Management
+  getAllUsers: () => api.get('/admin/users'),
+  createUser: (userData) => api.post('/admin/users', userData),
+  updateUser: (userId, userData) => api.put(`/admin/users/${userId}`, userData),
+  deleteUser: (userId) => api.delete(`/admin/users/${userId}`),
+  
+  // Security Settings
+  getSecuritySettings: () => api.get('/admin/security-settings'),
+  updateSecuritySettings: (settings) => api.put('/admin/security-settings', settings)
 };
 
 export default api;

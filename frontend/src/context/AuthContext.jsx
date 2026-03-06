@@ -1,17 +1,17 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import { authService } from '../services/api';
+import { createContext, useContext, useState, useEffect } from "react";
+import { authService } from "../services/api";
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [token, setToken] = useState(localStorage.getItem("token"));
 
   useEffect(() => {
     const checkAuth = async () => {
-      const storedToken = localStorage.getItem('token');
-      const storedUser = localStorage.getItem('user');
+      const storedToken = localStorage.getItem("token");
+      const storedUser = localStorage.getItem("user");
 
       if (storedToken && storedUser) {
         try {
@@ -21,8 +21,8 @@ export const AuthProvider = ({ children }) => {
           setToken(storedToken);
         } catch (error) {
           // Token invalid or expired - clear and redirect
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
           setUser(null);
           setToken(null);
         }
@@ -33,44 +33,47 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
 
     // Auto-check token expiration every 5 minutes
-    const interval = setInterval(() => {
-      const storedToken = localStorage.getItem('token');
-      if (storedToken) {
-        try {
-          // Decode JWT to check expiration
-          const payload = JSON.parse(atob(storedToken.split('.')[1]));
-          const expirationTime = payload.exp * 1000;
-          
-          if (Date.now() >= expirationTime) {
-            // Token expired - auto logout
+    const interval = setInterval(
+      () => {
+        const storedToken = localStorage.getItem("token");
+        if (storedToken) {
+          try {
+            // Decode JWT to check expiration
+            const payload = JSON.parse(atob(storedToken.split(".")[1]));
+            const expirationTime = payload.exp * 1000;
+
+            if (Date.now() >= expirationTime) {
+              // Token expired - auto logout
+              logout();
+            }
+          } catch (error) {
+            console.error("Token validation error:", error);
             logout();
           }
-        } catch (error) {
-          console.error('Token validation error:', error);
-          logout();
         }
-      }
-    }, 5 * 60 * 1000); // Check every 5 minutes
+      },
+      5 * 60 * 1000,
+    ); // Check every 5 minutes
 
     return () => clearInterval(interval);
   }, []);
 
   const login = async (email, password) => {
     try {
-      const response = await authService.login({ email, password });
+      const response = await authService.login(email, password);
       const { token: newToken, user: newUser } = response.data;
-      
-      localStorage.setItem('token', newToken);
-      localStorage.setItem('user', JSON.stringify(newUser));
-      
+
+      localStorage.setItem("token", newToken);
+      localStorage.setItem("user", JSON.stringify(newUser));
+
       setToken(newToken);
       setUser(newUser);
-      
+
       return { success: true, user: newUser };
     } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Login failed'
+        error: error.response?.data?.error || "Login failed",
       };
     }
   };
@@ -79,29 +82,29 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authService.register(userData);
       const { token: newToken, user: newUser } = response.data;
-      
-      localStorage.setItem('token', newToken);
-      localStorage.setItem('user', JSON.stringify(newUser));
-      
+
+      localStorage.setItem("token", newToken);
+      localStorage.setItem("user", JSON.stringify(newUser));
+
       setToken(newToken);
       setUser(newUser);
-      
+
       return { success: true, user: newUser };
     } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Registration failed'
+        error: error.response?.data?.error || "Registration failed",
       };
     }
   };
 
   const logout = () => {
     authService.logout();
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     setToken(null);
     setUser(null);
-    window.location.href = '/login';
+    window.location.href = "/login";
   };
 
   const value = {
@@ -112,8 +115,8 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     isAuthenticated: !!token,
-    isAdmin: user?.role === 'admin',
-    isStudent: user?.role === 'student'
+    isAdmin: user?.role === "admin",
+    isStudent: user?.role === "student",
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -122,7 +125,7 @@ export const AuthProvider = ({ children }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
